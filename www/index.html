@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Country Manager: Economy Simulator</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+body{background:#0f172a;color:white;transition:.3s}
+.hidden{display:none}
+
+/* LOADING */
+#loadingScreen{
+position:fixed;top:0;left:0;width:100%;height:100%;
+background:#020617;display:flex;flex-direction:column;
+align-items:center;justify-content:center;z-index:9999}
+.progressBox{width:80%;height:25px;background:#1e293b;border-radius:20px;overflow:hidden;margin-top:20px}
+.progress{height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#3b82f6)}
+#loadingText{margin-top:10px}
+
+/* TOPBAR */
+#topbar{
+height:60px;background:#1e293b;
+display:flex;justify-content:space-between;
+align-items:center;padding:0 20px;font-weight:bold}
+
+/* SIDEBAR */
+#sidebar{
+position:fixed;left:-250px;top:60px;
+width:250px;height:100%;
+background:#111827;transition:.3s;
+padding-top:10px;z-index:10}
+#sidebar button{
+width:100%;padding:12px;background:none;
+border:none;color:white;text-align:left;cursor:pointer}
+#sidebar button:hover{background:#1f2937}
+
+#content{margin-top:60px;padding:20px}
+
+.card{
+background:#1e293b;padding:15px;
+margin-bottom:15px;border-radius:10px}
+
+input,textarea{
+width:100%;padding:6px;margin-top:5px;
+background:#0f172a;color:white;
+border:1px solid #334155;border-radius:5px}
+
+button.action{
+background:#22c55e;border:none;
+padding:8px;margin-top:8px;
+border-radius:5px;cursor:pointer;color:white}
+button.danger{background:#ef4444}
+
+canvas{background:#0f172a;border-radius:10px}
+
+#gameOver{
+position:fixed;top:0;left:0;width:100%;height:100%;
+background:rgba(0,0,0,.95);
+display:flex;flex-direction:column;
+align-items:center;justify-content:center;
+font-size:22px;z-index:999}
+
+.darkmode{background:#000}
+</style>
+</head>
+
+<body>
+
+<!-- LOADING -->
+<div id="loadingScreen">
+<h2>Loading Engine...</h2>
+<div class="progressBox">
+<div class="progress" id="progressBar"></div>
+</div>
+<p id="loadingText">0%</p>
+</div>
+
+<!-- GAME UI -->
+<div id="gameUI" class="hidden">
+
+<div id="topbar">
+<span onclick="toggleSidebar()" style="cursor:pointer">☰ Menu</span>
+<span id="playerName">Leader: Ahmad</span>
+<span id="dayCounter">Hari: 1</span>
+</div>
+
+<div id="sidebar">
+<button onclick="showSection('dashboard')">Dashboard</button>
+<button onclick="showSection('ekonomi')">Ekonomi</button>
+<button onclick="showSection('pajak')">Pajak</button>
+<button onclick="showSection('korupsi')">Korupsi</button>
+<button onclick="showSection('catatan')">Catatan</button>
+<button onclick="showSection('peringkat')">Peringkat</button>
+<button onclick="showSection('shop')">Shop</button>
+<button onclick="showSection('statistik')">Statistik</button>
+<button onclick="showSection('pengaturan')">Pengaturan</button>
+<button onclick="resetGame()">Reset Game</button>
+</div>
+
+<div id="content">
+
+<div id="dashboard" class="section">
+<div class="card">💰 Uang: <span id="money"></span></div>
+<div class="card">📈 Income/detik: <span id="income"></span></div>
+<div class="card">😊 Kebahagiaan: <span id="happy"></span></div>
+<div class="card">🛡 Stabilitas: <span id="stability"></span></div>
+<div class="card">💀 Korupsi: <span id="corruption"></span></div>
+<div class="card">👥 Populasi: <span id="population"></span></div>
+</div>
+
+<div id="ekonomi" class="section hidden">
+<div class="card">Pendidikan <input type="range" min="0" max="100" id="edu" value="50"></div>
+<div class="card">Kesehatan <input type="range" min="0" max="100" id="health" value="50"></div>
+<div class="card">Militer <input type="range" min="0" max="100" id="military" value="50"></div>
+<div class="card">Infrastruktur <input type="range" min="0" max="100" id="infra" value="50"></div>
+</div>
+
+<div id="pajak" class="section hidden">
+<div class="card">Atur Pajak (%) <input type="range" min="0" max="50" id="tax" value="10"></div>
+</div>
+
+<div id="korupsi" class="section hidden">
+<div class="card">
+<button class="action danger" onclick="stealMoney()">Ambil Dana Rahasia</button>
+</div>
+</div>
+
+<div id="catatan" class="section hidden">
+<div class="card">
+<textarea id="notes" rows="6"></textarea>
+</div>
+</div>
+
+<div id="peringkat" class="section hidden">
+<div class="card" id="rankText"></div>
+</div>
+
+<div id="shop" class="section hidden">
+<div class="card">
+<button class="action" onclick="buyUpgrade('eco')">Boost Ekonomi (500)</button>
+<button class="action" onclick="buyUpgrade('anti')">Anti Korupsi (700)</button>
+<button class="action" onclick="buyUpgrade('invest')">Investasi Asing (1000)</button>
+</div>
+</div>
+
+<div id="statistik" class="section hidden">
+<canvas id="chart" width="320" height="200"></canvas>
+</div>
+
+<div id="pengaturan" class="section hidden">
+<div class="card">
+Nama Player
+<input type="text" id="newName">
+<button class="action" onclick="changeName()">Ganti Nama</button>
+<button class="action" onclick="toggleDark()">Toggle Dark Mode</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<div id="gameOver" class="hidden">
+<h1>GAME OVER</h1>
+<button class="action" onclick="resetGame()">Restart</button>
+</div>
+
+<script>
+let game={
+money:1000,income:20,happy:70,stability:80,
+corruption:10,population:1000,day:1,
+tax:10,edu:50,health:50,military:50,infra:50
+};
+
+let gameInterval=null;
+let saveInterval=null;
+
+/* LOCK SCREEN */
+function lockScreen(lock){
+if(lock){
+document.body.style.overflow="hidden";
+document.body.style.pointerEvents="none";
+loadingScreen.style.pointerEvents="all";
+}else{
+document.body.style.overflow="auto";
+document.body.style.pointerEvents="auto";
+}
+}
+
+/* SIDEBAR */
+function toggleSidebar(){
+sidebar.style.left= sidebar.style.left==="0px"?"-250px":"0px";
+}
+
+/* SECTION */
+function showSection(id){
+document.querySelectorAll(".section").forEach(s=>s.classList.add("hidden"));
+document.getElementById(id).classList.remove("hidden");
+}
+
+/* UPDATE UI */
+function updateUI(){
+money.textContent=Math.floor(game.money);
+income.textContent=Math.floor(game.income);
+happy.textContent=Math.max(0,Math.floor(game.happy))+"%";
+stability.textContent=Math.max(0,Math.floor(game.stability))+"%";
+corruption.textContent=Math.max(0,Math.floor(game.corruption))+"%";
+population.textContent=game.population;
+dayCounter.textContent="Hari: "+game.day;
+updateRank();
+}
+
+/* RANK */
+function updateRank(){
+let score=game.money+game.happy+game.stability;
+let rank="Diktator Gagal";
+if(score>3000) rank="Pemimpin Lemah";
+if(score>7000) rank="Presiden Baik";
+if(score>15000) rank="Pemimpin Legendaris";
+rankText.textContent="Peringkat Anda: "+rank;
+}
+
+/* ECONOMY */
+function calculateEconomy(){
+game.income=10+(game.tax*3)+(game.edu*0.2)+(game.health*0.15)+(game.infra*0.25)-(game.corruption*0.5);
+game.happy=70-(game.tax*0.5)+(game.edu*0.2)+(game.health*0.3)-(game.corruption*0.4);
+game.stability=80+(game.military*0.2)-(game.corruption*0.5);
+}
+
+/* GAME LOOP */
+function startGameLoop(){
+if(gameInterval) clearInterval(gameInterval);
+gameInterval=setInterval(()=>{
+calculateEconomy();
+game.money+=game.income;
+game.day++;
+randomEvent();
+if(game.money<0||game.stability<=0||game.corruption>=100){
+clearInterval(gameInterval);
+gameOver.classList.remove("hidden");
+}
+drawChart();
+updateUI();
+},1000);
+}
+
+/* RANDOM EVENT */
+function randomEvent(){
+if(Math.random()<0.05){
+let type=Math.floor(Math.random()*3);
+if(type===0){game.money+=500;alert("Bantuan luar negeri +500");}
+if(type===1){game.money-=300;game.happy-=5;alert("Demo rakyat terjadi!");}
+if(type===2){game.corruption+=5;alert("Skandal politik!");}
+}
+}
+
+/* SLIDERS */
+edu.oninput=e=>game.edu=parseInt(e.target.value);
+health.oninput=e=>game.health=parseInt(e.target.value);
+military.oninput=e=>game.military=parseInt(e.target.value);
+infra.oninput=e=>game.infra=parseInt(e.target.value);
+tax.oninput=e=>game.tax=parseInt(e.target.value);
+
+/* ACTIONS */
+function stealMoney(){game.money+=500;game.corruption+=15;alert("Korupsi meningkat!");}
+function buyUpgrade(type){
+if(type==="eco"&&game.money>=500){game.money-=500;game.income+=50;}
+if(type==="anti"&&game.money>=700){game.money-=700;game.corruption-=20;}
+if(type==="invest"&&game.money>=1000){game.money-=1000;game.population+=500;}
+}
+function changeName(){let n=newName.value;if(n)playerName.textContent="Leader: "+n;}
+function toggleDark(){document.body.classList.toggle("darkmode");}
+function resetGame(){localStorage.clear();location.reload();}
+
+/* SAVE */
+function autoSave(){
+localStorage.setItem("countrySave",JSON.stringify(game));
+localStorage.setItem("notes",notes.value);
+}
+function loadGame(){
+let save=localStorage.getItem("countrySave");
+if(save) game=JSON.parse(save);
+let savedNotes=localStorage.getItem("notes");
+if(savedNotes) notes.value=savedNotes;
+}
+function startAutoSave(){
+if(saveInterval) clearInterval(saveInterval);
+saveInterval=setInterval(autoSave,5000);
+}
+
+/* CHART */
+function drawChart(){
+let ctx=chart.getContext("2d");
+ctx.clearRect(0,0,chart.width,chart.height);
+ctx.fillStyle="lime";
+ctx.fillRect(20,200-game.money/100,40,game.money/100);
+ctx.fillStyle="yellow";
+ctx.fillRect(100,200-game.happy*2,40,game.happy*2);
+}
+
+/* LOADING 10 DETIK FIX */
+function startLoading(){
+lockScreen(true);
+let duration=10000;
+let start=Date.now();
+let interval=setInterval(()=>{
+let elapsed=Date.now()-start;
+let percent=Math.min((elapsed/duration)*100,100);
+progressBar.style.width=percent+"%";
+loadingText.innerText=Math.floor(percent)+"%";
+if(percent>=100){
+clearInterval(interval);
+loadingScreen.classList.add("hidden");
+gameUI.classList.remove("hidden");
+lockScreen(false);
+loadGame();
+updateUI();
+startGameLoop();
+startAutoSave();
+}
+},50);
+}
+
+startLoading();
+</script>
+
+</body>
+</html>
